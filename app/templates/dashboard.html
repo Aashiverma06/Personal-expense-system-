@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block header_title %}
+    Financial Intelligence Dashboard 
+    <span style="font-size:0.9rem; font-weight:400; color:var(--gray-600); margin-left:12px;">
+        ({{ datetime_label or (month ~ '/' ~ year) }})
+    </span>
+{% endblock %}
+
+{% block content %}
+<!-- Month Selector Filter -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+    <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:0.85rem; font-weight:600; color:var(--gray-600);">Viewing Period:</span>
+        <form method="GET" action="{{ url_for('dashboard.index') }}" style="display:inline-flex; gap:8px;">
+            <select name="month" class="form-select" style="width:130px; padding:6px 10px;" onchange="this.form.submit()">
+                {% for m in range(1, 13) %}
+                    <option value="{{ m }}" {% if m == month %}selected{% endif %}>
+                        {% if m == 1 %}January{% elif m == 2 %}February{% elif m == 3 %}March
+                        {% elif m == 4 %}April{% elif m == 5 %}May{% elif m == 6 %}June
+                        {% elif m == 7 %}July{% elif m == 8 %}August{% elif m == 9 %}September
+                        {% elif m == 10 %}October{% elif m == 11 %}November{% elif m == 12 %}December{% endif %}
+                    </option>
+                {% endfor %}
+            </select>
+            <select name="year" class="form-select" style="width:90px; padding:6px 10px;" onchange="this.form.submit()">
+                {% for y in range(current_year - 2, current_year + 2) %}
+                    <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+
+    <div>
+        {% if not recent_transactions %}
+        <span style="font-size:0.85rem; color:var(--gray-600); margin-right:8px;">No transactions yet?</span>
+        <form action="{{ url_for('auth.load_demo') }}" method="POST" style="display:inline;">
+            <button type="submit" class="btn btn-sm btn-outline">⚡ Load Sample Demo Data</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 1. Top Financial Metrics Cards -->
+<div class="grid-4">
+    <!-- Income -->
+    <div class="card stat-card">
+        <span class="stat-label">Total Income</span>
+        <span class="stat-value" style="color:var(--success);">
+            {{ overview.income | currency(g.user.currency) }}
+        </span>
+        <div class="stat-sub neutral">
+            <span>Last month: {{ overview.prev_income | currency(g.user.currency) }}</span>
+        </div>
+    </div>
+
+    <!-- Expenses -->
+    <div class="card stat-card">
+        <span class="stat-label">Total Expenses</span>
+        <span class="stat-value" style="color:var(--danger);">
+            {{ overview.expense | currency(g.user.currency) }}
+        </span>
+        <div class="stat-sub {% if overview.expense_growth_rate > 0 %}negative{% elif overview.expense_growth_rate < 0 %}positive{% else %}neutral{% endif %}">
+            {% if overview.prev_expense > 0 %}
+                {% if overview.expense_growth_rate > 0 %}▲ +{{ overview.expense_growth_rate }}% vs last month{% else %}▼ {{ overview.expense_growth_rate }}% vs last month{% endif %}
+            {% else %}
+                <span>Baseline month</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Balance -->
+    <div class="card stat-card">
+        <span class="stat-label">Remaining Balance</span>
+        <span class="stat-value" style="color:{% if overview.balance >= 0 %}var(--primary){% else %}var(--danger){% endif %};">
+            {{ overview.balance | currency(g.user.currency) }}
+        </span>
+        <div class="stat-sub neutral">
+            <span>Net cash flow</span>
+        </div>
+    </div>
+
+    <!-- Savings Rate -->
+    <div class="card stat-card">
+        <span class="stat-label">Savings Rate</span>
+        <span class="stat-value" style="color:{% if overview.savings_rate >= 20 %}var(--success){% elif overview.savings_rate > 0 %}var(--warning){% else %}var(--danger){% endif %};">
+            {{ overview.savings_rate }}%
+        </span>
+        <div class="stat-sub {% if overview.savings_rate >= 20 %}positive{% else %}neutral{% endif %}">
+            <span>Target: &ge; 20% (50/30/20 rule)</span>
+        </div>
+    </div>
+</div>
+
+<!-- 2. Section 6: Intelligent Insights & Recommendations Banner -->
+<div class="card" style="margin-bottom: 24px; border-left: 4px solid var(--primary);">
+    <div class="card-header">
+        <h3 class="card-title">
+            <span>🧠 Intelligent Financial Insights</span>
+            <span class="badge badge-primary">Decision Support</span>
+        </h3>
+        <span style="font-size:0.8rem; color:var(--gray-600);">Auto-generated by PEIS Statistical Engine</span>
+    </div>
+
+    {% if insights %}
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        {% for ins in insights %}
+        <div class="insight-item {{ ins.severity }}">
+            <div class="insight-icon">
+                {% if ins.severity == 'danger' %}🚨
+                {% elif ins.severity == 'warning' %}⚠️
+                {% elif ins.severity == 'success' %}✓
+                {% else %}💡{% endif %}
+            </div>
+            <div class="insight-content" style="flex:1;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h4>{{ ins.title }}</h4>
+                    <span class="badge badge-{{ ins.severity }}">{{ ins.type | replace('_', ' ') }}</span>
+                </div>
+                <p>{{ ins.message }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p style="color:var(--gray-600); font-size:0.9rem; padding: 10px 0;">
+        No active alerts for this period. Add more expenses or load demo data to view automated insights.
+    </p>
+    {% endif %}
+</div>
+
+<!-- 3. Visual Charts Grid -->
+<div class="grid-2">
+    <!-- Chart A: Expense by Category -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">🍩 Expense by Category</h3>
+            <span style="font-size:0.8rem; color:var(--gray-600);">Total: {{ overview.expense | currency(g.user.currency) }}</span>
+        </div>
+        <div style="position: relative; height: 260px; display:flex; align-items:center; justify-content:center;">
+            {% if category_breakdown %}
+            <canvas id="categoryChart"></canvas>
+            {% else %}
+            <div style="color:var(--gray-400); font-size:0.9rem;">No expense transactions in this month.</div>
+            {% endif %}
+        </div>
+
+        {% if category_breakdown %}
+        <div style="margin-top: 16px; max-height: 180px; overflow-y: auto;">
+            <table class="table" style="font-size:0.82rem;">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th style="text-align:right;">Amount</th>
+                        <th style="text-align:right;">Share</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cat in category_breakdown %}
+                    <tr>
+                        <td style="font-weight:600;">{{ cat.category }}</td>
+                        <td style="text-align:right;">{{ cat.amount | currency(g.user.currency) }}</td>
+                        <td style="text-align:right;">
+                            <span class="badge badge-gray">{{ cat.percentage }}%</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Chart B: Monthly Spending Trend -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">📈 Income vs Expense Trend</h3>
+            <span style="font-size:0.8rem; color:var(--gray-600);">Last 6 Months</span>
+        </div>
+        <div style="position: relative; height: 260px;">
+            <canvas id="trendChart"></canvas>
+        </div>
+
+        <!-- Budget Quick Summary Cards below chart -->
+        <div style="margin-top: 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="font-size:0.85rem; font-weight:700; color:var(--gray-800);">Active Category Budgets</span>
+                <a href="{{ url_for('budgets.index') }}" style="font-size:0.8rem;">Manage Budgets &rarr;</a>
+            </div>
+
+            {% if budgets %}
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                {% for b in budgets[:3] %}
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+                        <span style="font-weight:600;">{{ b.category }}</span>
+                        <span>
+                            {{ b.spent_amount | currency(g.user.currency) }} / {{ b.budget_amount | currency(g.user.currency) }}
+                            <span class="badge badge-{{ b.badge_class }}">{{ b.status }}</span>
+                        </span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar {{ b.badge_class }}" style="width: {{ [b.percentage_used, 100] | min }}%;"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="font-size:0.82rem; color:var(--gray-500); padding:8px 0;">
+                No budgets set for this month. <a href="{{ url_for('budgets.index') }}">Set a budget</a> to track spending limits.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 4. Recent Transactions Table -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">💳 Recent Transactions</h3>
+        <a href="{{ url_for('transactions.index') }}" class="btn btn-sm btn-outline">View All &rarr;</a>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Payment</th>
+                    <th>Categorization</th>
+                    <th style="text-align:right;">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if recent_transactions %}
+                    {% for t in recent_transactions %}
+                    <tr>
+                        <td style="color:var(--gray-600); font-size:0.82rem;">{{ t.date }}</td>
+                        <td>
+                            <span class="badge badge-{% if t.type == 'income' %}success{% else %}danger{% endif %}">
+                                {{ t.type }}
+                            </span>
+                        </td>
+                        <td style="font-weight:600;">{{ t.category }}</td>
+                        <td style="color:var(--gray-700);">{{ t.description or '-' }}</td>
+                        <td style="font-size:0.82rem; color:var(--gray-600);">{{ t.payment_method }}</td>
+                        <td>
+                            <span class="badge badge-{% if t.categorization_method == 'ml' %}info{% elif t.categorization_method == 'rule' %}primary{% else %}gray{% endif %}" title="Categorized via {{ t.categorization_method }}">
+                                {{ t.categorization_method }}
+                            </span>
+                        </td>
+                        <td style="text-align:right; font-weight:700; color:{% if t.type == 'income' %}var(--success){% else %}var(--gray-900){% endif %};">
+                            {% if t.type == 'income' %}+{% else %}-{% endif %}{{ t.amount | currency(g.user.currency) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align:center; padding:32px; color:var(--gray-500);">
+                            No transactions found. Click <strong>+ Add Transaction</strong> or load demo data.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // 1. Render Category Doughnut Chart
+    const catLabels = {{ category_breakdown | map(attribute='category') | list | tojson }};
+    const catAmounts = {{ category_breakdown | map(attribute='amount') | list | tojson }};
+
+    if (catLabels.length > 0) {
+        const catCanvas = document.getElementById("categoryChart");
+        if (catCanvas) {
+            new Chart(catCanvas, {
+                type: 'doughnut',
+                data: {
+                    labels: catLabels,
+                    datasets: [{
+                        data: catAmounts,
+                        backgroundColor: [
+                            '#f97316', '#0ea5e9', '#8b5cf6', '#ec4899', '#ef4444',
+                            '#14b8a6', '#f59e0b', '#06b6d4', '#10b981', '#64748b'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { boxWidth: 12, font: { size: 11 } }
+                        }
+                    },
+                    cutout: '65%'
+                }
+            });
+        }
+    }
+
+    // 2. Render Income vs Expense Trend Chart
+    const trendLabels = {{ spending_trends.labels | tojson }};
+    const incomeTrend = {{ spending_trends.income | tojson }};
+    const expenseTrend = {{ spending_trends.expenses | tojson }};
+
+    const trendCanvas = document.getElementById("trendChart");
+    if (trendCanvas) {
+        new Chart(trendCanvas, {
+            type: 'bar',
+            data: {
+                labels: trendLabels,
+                datasets: [
+                    {
+                        label: 'Income',
+                        data: incomeTrend,
+                        backgroundColor: 'rgba(16, 185, 129, 0.75)',
+                        borderColor: '#10b981',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Expense',
+                        data: expenseTrend,
+                        backgroundColor: 'rgba(239, 68, 68, 0.75)',
+                        borderColor: '#ef4444',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { boxWidth: 12, font: { size: 11 } }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(val) { return '₹' + val.toLocaleString(); }
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

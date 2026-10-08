@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Log In{% endblock %}
+
+{% block content %}
+<div style="max-width: 420px; margin: 40px auto; padding: 10px;">
+    <div class="card" style="padding: 32px 28px; border-radius: 16px; box-shadow: var(--shadow-md);">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <div class="sidebar-brand-badge" style="margin: 0 auto 12px; width: 48px; height: 48px; font-size: 1.5rem;">⚡</div>
+            <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--gray-900);">Sign in to PEIS</h2>
+            <p style="font-size: 0.85rem; color: var(--gray-600); margin-top: 4px;">Personal Expense Intelligence System</p>
+        </div>
+
+        <form action="{{ url_for('auth.login') }}" method="POST">
+            <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" name="email" class="form-control" placeholder="you@example.com" required autofocus>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px; padding: 11px;">
+                Log In
+            </button>
+        </form>
+
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--gray-200); text-align: center; font-size: 0.88rem; color: var(--gray-600);">
+            Don't have an account? <a href="{{ url_for('auth.register') }}" style="font-weight: 600;">Create an account</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

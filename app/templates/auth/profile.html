@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}User Profile{% endblock %}
+{% block header_title %}User Profile & Settings{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    <div class="grid-2">
+        <!-- Edit Profile Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">👤 Profile Details</h3>
+            </div>
+            <form action="{{ url_for('auth.profile') }}" method="POST">
+                <input type="hidden" name="action" value="update_info">
+                
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" name="name" class="form-control" value="{{ user.name }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Email Address (Read-only)</label>
+                    <input type="email" class="form-control" value="{{ user.email }}" disabled style="background:#f1f5f9; cursor:not-allowed;">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Display Currency</label>
+                    <select name="currency" class="form-select">
+                        <option value="₹" {% if user.currency == '₹' %}selected{% endif %}>₹ - Indian Rupee (INR)</option>
+                        <option value="$" {% if user.currency == '$' %}selected{% endif %}>$ - US Dollar (USD)</option>
+                        <option value="€" {% if user.currency == '€' %}selected{% endif %}>€ - Euro (EUR)</option>
+                        <option value="£" {% if user.currency == '£' %}selected{% endif %}>£ - British Pound (GBP)</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </form>
+        </div>
+
+        <!-- Security / Password Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">🔒 Password Security</h3>
+            </div>
+            <form action="{{ url_for('auth.profile') }}" method="POST">
+                <input type="hidden" name="action" value="change_password">
+
+                <div class="form-group">
+                    <label class="form-label">Current Password</label>
+                    <input type="password" name="current_password" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">New Password</label>
+                    <input type="password" name="new_password" class="form-control" required minlength="6">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Confirm New Password</label>
+                    <input type="password" name="confirm_password" class="form-control" required minlength="6">
+                </div>
+
+                <button type="submit" class="btn btn-outline">Update Password</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- System Info Card -->
+    <div class="card" style="margin-top: 24px;">
+        <div class="card-header">
+            <h3 class="card-title">ℹ️ System Status & Intelligence Engine</h3>
+        </div>
+        <p style="font-size:0.9rem; color:var(--gray-700); margin-bottom:12px;">
+            PEIS is configured with dual-engine categorization:
+        </p>
+        <ul style="font-size:0.85rem; color:var(--gray-600); margin-left: 20px; line-height: 1.8;">
+            <li><strong>Keyword Engine:</strong> 12+ categories with 100+ mapped semantic tokens</li>
+            <li><strong>Machine Learning Engine:</strong> Scikit-learn Pipeline (TF-IDF Vectorizer + Logistic Regression)</li>
+            <li><strong>Statistical Analytics:</strong> Pandas time series and Z-Score anomaly detection</li>
+            <li><strong>Decision Support:</strong> 50/30/20 rule, budget utilization flags, month-over-month variance analysis</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

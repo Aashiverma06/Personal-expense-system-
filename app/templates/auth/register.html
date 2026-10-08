@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Register Account{% endblock %}
+
+{% block content %}
+<div style="max-width: 460px; margin: 30px auto; padding: 10px;">
+    <div class="card" style="padding: 32px 28px; border-radius: 16px; box-shadow: var(--shadow-md);">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <div class="sidebar-brand-badge" style="margin: 0 auto 12px; width: 48px; height: 48px; font-size: 1.5rem;">⚡</div>
+            <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--gray-900);">Create PEIS Account</h2>
+            <p style="font-size: 0.85rem; color: var(--gray-600); margin-top: 4px;">Smart Expense Tracking & Intelligence Engine</p>
+        </div>
+
+        <form action="{{ url_for('auth.register') }}" method="POST">
+            <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" name="name" class="form-control" placeholder="John Doe" required autofocus>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" name="email" class="form-control" placeholder="john@example.com" required>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" name="password" class="form-control" placeholder="••••••••" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Confirm Password</label>
+                    <input type="password" name="confirm_password" class="form-control" placeholder="••••••••" required minlength="6">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Preferred Currency Symbol</label>
+                <select name="currency" class="form-select">
+                    <option value="₹" selected>₹ - Indian Rupee (INR)</option>
+                    <option value="$">$ - US Dollar (USD)</option>
+                    <option value="€">€ - Euro (EUR)</option>
+                    <option value="£">£ - British Pound (GBP)</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px; padding: 11px;">
+                Create Account
+            </button>
+        </form>
+
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--gray-200); text-align: center; font-size: 0.88rem; color: var(--gray-600);">
+            Already have an account? <a href="{{ url_for('auth.login') }}" style="font-weight: 600;">Sign in here</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

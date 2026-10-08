@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}Research Experiment{% endblock %}
+{% block header_title %}Research Experiment & Empirical Evaluation{% endblock %}
+
+{% block content %}
+<!-- Research Overview Banner -->
+<div class="card" style="margin-bottom:24px; border-left: 4px solid #8b5cf6;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+        <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span class="badge badge-primary">Academic Research Component</span>
+                <span style="font-size:0.8rem; color:var(--gray-600);">Section 12 Benchmark</span>
+            </div>
+            <h2 style="font-size:1.3rem; font-weight:800; color:var(--gray-900);">
+                Intelligent Personal Expense Categorization: Rule-Based vs. Machine Learning
+            </h2>
+            <p style="font-size:0.88rem; color:var(--gray-700); margin-top:6px; max-width:850px; line-height:1.6;">
+                This module provides empirical evaluation for our 3rd-year engineering research investigation. 
+                We evaluate three categorization paradigms: <strong>Manual Categorization</strong> (human cognitive baseline), 
+                <strong>Rule-Based Keyword Matching</strong>, and <strong>Machine Learning Classification</strong> (TF-IDF vectorizer + Logistic Regression)
+                on an independent benchmark test set of real-world expense descriptions.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- 1. Empirical Metrics Summary Matrix -->
+<div class="card" style="margin-bottom:24px;">
+    <div class="card-header">
+        <h3 class="card-title">📊 Empirical Performance Comparison</h3>
+        <span style="font-size:0.8rem; color:var(--gray-600);">
+            Evaluated on {{ benchmark.dataset_info.total_test_samples }} benchmark samples across {{ benchmark.dataset_info.num_classes }} distinct spending categories
+        </span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Categorization Method</th>
+                    <th style="text-align:right;">Empirical Accuracy</th>
+                    <th style="text-align:right;">Macro F1-Score</th>
+                    <th style="text-align:right;">Avg Latency (ms)</th>
+                    <th>Scalability</th>
+                    <th>Failure Modes & Characteristics</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in benchmark.metrics_summary %}
+                <tr style="{% if 'Machine Learning' in m.method %}background-color: #f5f3ff; font-weight:600;{% endif %}">
+                    <td>
+                        <strong>{{ m.method }}</strong>
+                        {% if 'Machine Learning' in m.method %}<span class="badge badge-primary" style="margin-left:6px;">Proposed</span>{% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        {% if m.accuracy_pct is number %}
+                            <strong style="color:var(--primary); font-size:1.05rem;">{{ m.accuracy_pct }}%</strong>
+                        {% else %}
+                            <span style="color:var(--gray-600);">{{ m.accuracy_pct }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        {% if m.f1_score is number %}
+                            <strong>{{ m.f1_score }}</strong>
+                        {% else %}
+                            <span style="color:var(--gray-600);">{{ m.f1_score }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right; font-family:monospace;">
+                        {{ m.avg_latency_ms }}
+                    </td>
+                    <td><span class="badge badge-gray">{{ m.scalability }}</span></td>
+                    <td style="font-size:0.82rem; color:var(--gray-600);">{{ m.notes }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 2. Live Interactive Model Testing Console -->
+<div class="card" style="margin-bottom:24px;">
+    <div class="card-header">
+        <h3 class="card-title">⚡ Live Interactive Testing Console</h3>
+        <span style="font-size:0.8rem; color:var(--gray-600);">Test any arbitrary expense description against both classifiers</span>
+    </div>
+
+    <div style="display:flex; gap:10px; margin-bottom:16px;">
+        <input type="text" id="live-test-input" class="form-control" 
+               placeholder="Type an expense description (e.g. 'Bought pepperoni pizza at Domino's' or 'Uber cab to airport terminal')..."
+               value="Ordered butter chicken and garlic naan from Swiggy">
+        <button type="button" class="btn btn-primary" onclick="runLiveTest()">
+            Run Inference
+        </button>
+    </div>
+
+    <!-- Quick Sample Buttons -->
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; font-size:0.8rem; align-items:center;">
+        <span style="color:var(--gray-600);">Try quick samples:</span>
+        <button type="button" class="btn btn-sm btn-outline" onclick="setTestInput('Uber ride to tech park campus')">🚗 Uber ride to tech park</button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="setTestInput('Purchased Udemy Python masterclass course')">📚 Udemy Python course</button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="setTestInput('Apollo pharmacy cough syrup and vitamins')">💊 Apollo pharmacy meds</button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="setTestInput('IMAX movie tickets BookMyShow popcorn')">🍿 IMAX movie tickets</button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="setTestInput('Amazon summer sale casual running shoes')">👟 Amazon running shoes</button>
+    </div>
+
+    <!-- Live Test Results Grid -->
+    <div id="live-results-container" class="grid-3" style="display:none; margin-top:20px;">
+        <!-- Card 1: Rule-Based Result -->
+        <div class="card" style="background:#f8fafc; border:1px solid var(--gray-300);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--gray-600);">Rule-Based (Keyword)</span>
+                <span id="res-rule-latency" class="badge badge-gray">- ms</span>
+            </div>
+            <div id="res-rule-cat" style="font-size:1.2rem; font-weight:800; color:var(--gray-900); margin-bottom:4px;">-</div>
+            <div style="font-size:0.8rem; color:var(--gray-600);" id="res-rule-meta">-</div>
+        </div>
+
+        <!-- Card 2: ML Model Result -->
+        <div class="card" style="background:#f5f3ff; border:1px solid #c4b5fd;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:#6d28d9;">Machine Learning (TF-IDF + LR)</span>
+                <span id="res-ml-latency" class="badge badge-primary">- ms</span>
+            </div>
+            <div id="res-ml-cat" style="font-size:1.2rem; font-weight:800; color:#5b21b6; margin-bottom:4px;">-</div>
+            <div style="font-size:0.8rem; color:var(--gray-700);" id="res-ml-meta">-</div>
+            <div id="res-ml-alts" style="font-size:0.75rem; color:var(--gray-600); margin-top:8px;"></div>
+        </div>
+
+        <!-- Card 3: Hybrid Engine Decision -->
+        <div class="card" style="background:#ecfdf5; border:1px solid #a7f3d0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:#047857;">PEIS Hybrid Decision</span>
+                <span class="badge badge-success">Recommended</span>
+            </div>
+            <div id="res-hybrid-cat" style="font-size:1.2rem; font-weight:800; color:#065f46; margin-bottom:4px;">-</div>
+            <div style="font-size:0.8rem; color:#065f46;" id="res-hybrid-meta">-</div>
+        </div>
+    </div>
+</div>
+
+<!-- 3. Sample-by-Sample Benchmark Dataset Table -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">🔬 Held-Out Benchmark Test Suite Log</h3>
+        <span style="font-size:0.8rem; color:var(--gray-600);">
+            Showing all {{ benchmark.comparison_samples | length }} individual test instances
+        </span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table" style="font-size:0.82rem;">
+            <thead>
+                <tr>
+                    <th style="width:40px;">#</th>
+                    <th>Expense Description</th>
+                    <th>Ground Truth</th>
+                    <th>Rule-Based Prediction</th>
+                    <th>ML Model Prediction</th>
+                    <th style="text-align:right;">ML Confidence</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sample in benchmark.comparison_samples %}
+                <tr>
+                    <td style="color:var(--gray-500);">{{ sample.id }}</td>
+                    <td style="font-weight:600; color:var(--gray-800);">{{ sample.description }}</td>
+                    <td><span class="badge badge-gray">{{ sample.ground_truth }}</span></td>
+                    <td>
+                        <span class="badge badge-{% if sample.rule_correct %}success{% else %}danger{% endif %}">
+                            {% if sample.rule_correct %}✓{% else %}✗{% endif %} {{ sample.rule_pred }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge badge-{% if sample.ml_correct %}success{% else %}danger{% endif %}">
+                            {% if sample.ml_correct %}✓{% else %}✗{% endif %} {{ sample.ml_pred }}
+                        </span>
+                    </td>
+                    <td style="text-align:right; font-family:monospace;">
+                        {{ (sample.ml_confidence * 100) | round(1) }}%
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function setTestInput(val) {
+    document.getElementById("live-test-input").value = val;
+    runLiveTest();
+}
+
+function runLiveTest() {
+    const input = document.getElementById("live-test-input").value.trim();
+    if (!input) return;
+
+    fetch("/experiment/api/test-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: input })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) return;
+        const res = data.result;
+
+        // Populate Rule
+        document.getElementById("res-rule-cat").textContent = res.rule_based.category;
+        document.getElementById("res-rule-latency").textContent = `${res.rule_based.latency_ms} ms`;
+        document.getElementById("res-rule-meta").textContent = res.rule_based.explanation;
+
+        // Populate ML
+        document.getElementById("res-ml-cat").textContent = res.machine_learning.category;
+        document.getElementById("res-ml-latency").textContent = `${res.machine_learning.latency_ms} ms`;
+        document.getElementById("res-ml-meta").textContent = `${res.machine_learning.explanation}`;
+        
+        const altsContainer = document.getElementById("res-ml-alts");
+        if (res.machine_learning.alternatives && res.machine_learning.alternatives.length > 0) {
+            altsContainer.innerHTML = "<strong>Alternatives:</strong> " + 
+                res.machine_learning.alternatives.map(a => `${a.category} (${Math.round(a.confidence * 100)}%)`).join(", ");
+        } else {
+            altsContainer.innerHTML = "";
+        }
+
+        // Populate Hybrid
+        document.getElementById("res-hybrid-cat").textContent = res.hybrid_recommendation.category;
+        document.getElementById("res-hybrid-meta").textContent = res.hybrid_recommendation.explanation;
+
+        document.getElementById("live-results-container").style.display = "grid";
+    })
+    .catch(err => console.error(err));
+}
+
+// Auto-run first test sample on page load
+document.addEventListener("DOMContentLoaded", function() {
+    runLiveTest();
+});
+</script>
+{% endblock %}

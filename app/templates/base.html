@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Personal Expense Intelligence System{% endblock %} - PEIS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Offline bundled Chart.js -->
+    <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        {% if g.user %}
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand-badge">⚡</div>
+                <div class="sidebar-brand-text">
+                    <h1>PEIS</h1>
+                    <span>Expense Intelligence</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('dashboard.index') }}" class="nav-item {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+                    <span class="nav-icon">📊</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('transactions.index') }}" class="nav-item {% if request.endpoint.startswith('transactions.') %}active{% endif %}">
+                    <span class="nav-icon">💳</span>
+                    <span>Transactions</span>
+                </a>
+                <a href="{{ url_for('budgets.index') }}" class="nav-item {% if request.endpoint.startswith('budgets.') %}active{% endif %}">
+                    <span class="nav-icon">🎯</span>
+                    <span>Budgets</span>
+                </a>
+                <a href="{{ url_for('reports.index') }}" class="nav-item {% if request.endpoint.startswith('reports.') %}active{% endif %}">
+                    <span class="nav-icon">📑</span>
+                    <span>Reports</span>
+                </a>
+                <a href="{{ url_for('experiment.index') }}" class="nav-item {% if request.endpoint.startswith('experiment.') %}active{% endif %}">
+                    <span class="nav-icon">🔬</span>
+                    <span>Research Experiment</span>
+                </a>
+                <a href="{{ url_for('auth.profile') }}" class="nav-item {% if request.endpoint == 'auth.profile' %}active{% endif %}">
+                    <span class="nav-icon">⚙️</span>
+                    <span>Profile & Settings</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-badge">
+                    <div class="user-avatar">{{ g.user.name[0] | upper }}</div>
+                    <div class="user-info">
+                        <div class="name">{{ g.user.name }}</div>
+                        <div class="email">{{ g.user.email }}</div>
+                    </div>
+                    <a href="{{ url_for('auth.logout') }}" title="Logout" style="color: #94a3b8; font-size: 1.1rem; text-decoration: none;">🚪</a>
+                </div>
+            </div>
+        </aside>
+        {% endif %}
+
+        <!-- Main Wrapper -->
+        <main class="main-wrapper">
+            {% if g.user %}
+            <header class="top-navbar">
+                <div class="page-title">{% block header_title %}Personal Expense Intelligence{% endblock %}</div>
+                <div class="top-actions">
+                    <button class="btn btn-primary" onclick="openAddModal()">
+                        <span>+ Add Transaction</span>
+                    </button>
+                    <form action="{{ url_for('auth.load_demo') }}" method="POST" style="display:inline;">
+                        <button type="submit" class="btn btn-outline btn-sm" title="Seed 30+ demo expenses across two months to view charts, budget alerts, and analytics">
+                            <span>⚡ Demo Data</span>
+                        </button>
+                    </form>
+                </div>
+            </header>
+            {% endif %}
+
+            <div class="content-body">
+                <!-- Flash messages -->
+                <div class="flash-messages">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }}">
+                                    <span>{{ message }}</span>
+                                    <button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;">&times;</button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                </div>
+
+                <!-- Page content -->
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Global Add Transaction Modal -->
+    {% if g.user %}
+    <div id="addTransactionModal" class="modal-backdrop">
+        <div class="modal-dialog">
+            <form action="{{ url_for('transactions.add') }}" method="POST">
+                <div class="modal-header">
+                    <h3 class="modal-title">Record Transaction</h3>
+                    <button type="button" class="modal-close" onclick="closeAddModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Transaction Type</label>
+                        <div style="display: flex; gap: 10px;">
+                            <label style="flex:1; display:flex; align-items:center; gap:6px; cursor:pointer; background:#f1f5f9; padding:8px 12px; border-radius:6px;">
+                                <input type="radio" name="type" value="expense" checked onchange="toggleType(this.value)"> Expense
+                            </label>
+                            <label style="flex:1; display:flex; align-items:center; gap:6px; cursor:pointer; background:#f1f5f9; padding:8px 12px; border-radius:6px;">
+                                <input type="radio" name="type" value="income" onchange="toggleType(this.value)"> Income
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Description (powers Intelligent Auto-Categorization)</label>
+                        <input type="text" id="tx-description" name="description" class="form-control" 
+                               placeholder="e.g. Domino's pizza, Uber ride, Coursera python course..." 
+                               autocomplete="off" required oninput="handleDescriptionInput(this.value)">
+                        
+                        <!-- Real-time Intelligence Suggestion Box -->
+                        <div id="auto-cat-box" class="auto-cat-preview">
+                            <span style="font-size:1.1rem;">💡</span>
+                            <div style="flex:1;">
+                                <strong>Suggested Category:</strong> <span id="auto-cat-name" style="color:var(--primary); font-weight:700;">-</span>
+                                <div id="auto-cat-meta" style="font-size:0.75rem; color:var(--gray-600);">-</div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="acceptSuggestedCategory()">Apply</button>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Amount ({{ g.user.currency }})</label>
+                            <input type="number" step="0.01" name="amount" class="form-control" placeholder="0.00" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Date</label>
+                            <input type="date" name="date" class="form-control" value="{{ today or '' }}" required>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Category</label>
+                            <select id="tx-category" name="category" class="form-select" required>
+                                <option value="">Select Category</option>
+                                <option value="Food & Dining">Food & Dining</option>
+                                <option value="Transportation">Transportation</option>
+                                <option value="Education">Education</option>
+                                <option value="Entertainment">Entertainment</option>
+                                <option value="Healthcare">Healthcare</option>
+                                <option value="Housing & Utilities">Housing & Utilities</option>
+                                <option value="Shopping">Shopping</option>
+                                <option value="Personal Care">Personal Care</option>
+                                <option value="Investment">Investment</option>
+                                <option value="Salary">Salary</option>
+                                <option value="Freelance">Freelance</option>
+                                <option value="Investment Returns">Investment Returns</option>
+                                <option value="Miscellaneous">Miscellaneous</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Payment Method</label>
+                            <select name="payment_method" class="form-select">
+                                <option value="UPI">UPI</option>
+                                <option value="Cash">Cash</option>
+                                <option value="Credit Card">Credit Card</option>
+                                <option value="Debit Card">Debit Card</option>
+                                <option value="Bank Transfer">Bank Transfer</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="tx-categorization-method" name="categorization_method" value="manual">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeAddModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Transaction</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Global JS logic for modals and live auto-categorization -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

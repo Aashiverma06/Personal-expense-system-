@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Budget Management{% endblock %}
+{% block header_title %}Budget Management & Tracking{% endblock %}
+
+{% block content %}
+<!-- Period Selector & Header -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+    <div>
+        <h2 style="font-size:1.2rem; font-weight:700; color:var(--gray-900);">Monthly Category Budgets</h2>
+        <span style="font-size:0.85rem; color:var(--gray-600);">
+            Set spending limits to trigger automated alerts and intelligent warnings.
+        </span>
+    </div>
+
+    <!-- Month Picker -->
+    <form method="GET" action="{{ url_for('budgets.index') }}" style="display:flex; gap:8px;">
+        <select name="month" class="form-select" style="width:130px; padding:6px 10px;" onchange="this.form.submit()">
+            {% for m in range(1, 13) %}
+                <option value="{{ m }}" {% if m == month %}selected{% endif %}>
+                    {% if m == 1 %}January{% elif m == 2 %}February{% elif m == 3 %}March
+                    {% elif m == 4 %}April{% elif m == 5 %}May{% elif m == 6 %}June
+                    {% elif m == 7 %}July{% elif m == 8 %}August{% elif m == 9 %}September
+                    {% elif m == 10 %}October{% elif m == 11 %}November{% elif m == 12 %}December{% endif %}
+                </option>
+            {% endfor %}
+        </select>
+        <select name="year" class="form-select" style="width:90px; padding:6px 10px;" onchange="this.form.submit()">
+            {% for y in range(current_year - 2, current_year + 2) %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+<!-- Overall Budget Stats -->
+<div class="grid-4">
+    <div class="card stat-card">
+        <span class="stat-label">Total Budgeted</span>
+        <span class="stat-value" style="color:var(--primary);">
+            {{ summary.total_budgeted | currency(g.user.currency) }}
+        </span>
+        <div class="stat-sub neutral">
+            <span>Allocated for month</span>
+        </div>
+    </div>
+
+    <div class="card stat-card">
+        <span class="stat-label">Total Spent</span>
+        <span class="stat-value" style="color:{% if summary.overall_pct > 100 %}var(--danger){% else %}var(--gray-900){% endif %};">
+            {{ summary.total_spent | currency(g.user.currency) }}
+        </span>
+        <div class="stat-sub {% if summary.overall_pct > 100 %}negative{% else %}positive{% endif %}">
+            <span>{{ summary.overall_pct }}% of total budget</span>
+        </div>
+    </div>
+
+    <div class="card stat-card">
+        <span class="stat-label">Exceeded Budgets</span>
+        <span class="stat-value" style="color:{% if summary.exceeded_count > 0 %}var(--danger){% else %}var(--success){% endif %};">
+            {{ summary.exceeded_count }}
+        </span>
+        <div class="stat-sub {% if summary.exceeded_count > 0 %}negative{% else %}positive{% endif %}">
+            <span>Categories over limit</span>
+        </div>
+    </div>
+
+    <div class="card stat-card">
+        <span class="stat-label">Warning Budgets</span>
+        <span class="stat-value" style="color:var(--warning);">
+            {{ summary.warning_count }}
+        </span>
+        <div class="stat-sub neutral">
+            <span>Categories &ge; 80%</span>
+        </div>
+    </div>
+</div>
+
+<div class="grid-2" style="grid-template-columns: 2fr 1fr; align-items:start;">
+    <!-- Active Budgets Table Card -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">🎯 Category Allowances</h3>
+            <span style="font-size:0.8rem; color:var(--gray-600);">Real-time Tracking</span>
+        </div>
+
+        {% if budgets %}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Budget</th>
+                        <th>Actual Spending</th>
+                        <th>Remaining</th>
+                        <th>Utilization</th>
+                        <th>Status</th>
+                        <th style="text-align:center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in budgets %}
+                    <tr>
+                        <td style="font-weight:700;">{{ b.category }}</td>
+                        <td>{{ b.budget_amount | currency(g.user.currency) }}</td>
+                        <td style="font-weight:600;">{{ b.spent_amount | currency(g.user.currency) }}</td>
+                        <td style="color:{% if b.remaining_amount < 0 %}var(--danger){% else %}var(--success){% endif %};">
+                            {{ b.remaining_amount | currency(g.user.currency) }}
+                        </td>
+                        <td style="min-width:120px;">
+                            <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-bottom:2px;">
+                                <span>{{ b.percentage_used }}%</span>
+                            </div>
+                            <div class="progress-bar-container" style="margin:0;">
+                                <div class="progress-bar {{ b.badge_class }}" style="width: {{ [b.percentage_used, 100] | min }}%;"></div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge badge-{{ b.badge_class }}">
+                                {% if b.status == 'exceeded' %}⚠ Exceeded
+                                {% elif b.status == 'warning' %}⚠ Nearing Limit
+                                {% else %}✓ Safe{% endif %}
+                            </span>
+                        </td>
+                        <td style="text-align:center;">
+                            <form action="{{ url_for('budgets.delete_budget', budget_id=b.budget_id) }}" method="POST" onsubmit="return confirm('Remove budget for {{ b.category }}?');">
+                                <input type="hidden" name="month" value="{{ month }}">
+                                <input type="hidden" name="year" value="{{ year }}">
+                                <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);" title="Delete Budget">
+                                    🗑️
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align:center; padding:40px; color:var(--gray-500);">
+            No budgets created for this month yet. Use the form on the right to set spending limits.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Set New Budget Form Card -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">+ Set / Update Budget</h3>
+        </div>
+
+        <form action="{{ url_for('budgets.set_budget') }}" method="POST">
+            <input type="hidden" name="month" value="{{ month }}">
+            <input type="hidden" name="year" value="{{ year }}">
+
+            <div class="form-group">
+                <label class="form-label">Category</label>
+                <select name="category" class="form-select" required>
+                    <option value="">Select Expense Category</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.name }}">{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Monthly Budget Amount ({{ g.user.currency }})</label>
+                <input type="number" step="0.01" name="amount" class="form-control" placeholder="e.g. 5000" required>
+            </div>
+
+            <div style="font-size:0.8rem; color:var(--gray-600); margin-bottom:16px; background:#f8fafc; padding:10px; border-radius:6px;">
+                💡 <strong>Smart Decision Support:</strong> When your spending reaches 80% of this limit, PEIS will issue proactive warning alerts on your dashboard.
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%;">
+                Save Budget Target
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
