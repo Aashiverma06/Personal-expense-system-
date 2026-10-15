@@ -1,25 +1,19 @@
 import os
-import socket
 from app import create_app
 
-app = create_app(os.environ.get("FLASK_ENV", "development"))
-
-def find_available_port(preferred_port=5050):
-    """Checks if preferred_port is open; finds next available port if occupied."""
-    port = preferred_port
-    while True:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex(("127.0.0.1", port)) != 0:
-                return port
-            port += 1
+app = create_app(os.environ.get("FLASK_ENV", "production"))
 
 if __name__ == "__main__":
-    preferred = int(os.environ.get("PORT", 5050))
-    port = find_available_port(preferred)
-    
+    port = int(os.environ.get("PORT", 10000))
+
     print("\n" + "=" * 60)
-    print(" ⚡ Personal Expense Intelligence System (PEIS)")
-    print(f" 🚀 Running live at: http://127.0.0.1:{port}")
+    print("Personal Expense Intelligence System (PEIS)")
+    print(f"Running on port: {port}")
     print("=" * 60 + "\n")
 
-    app.run(host="127.0.0.1", port=port, debug=True)
+    app.run(
+        host="0.0.0.0",
+        port=port,
+        debug=False
+    )
+
